@@ -1,0 +1,1 @@
+This is the work we did with Can Aknesil on CUDA memory allocation management.
