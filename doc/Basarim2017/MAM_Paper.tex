@@ -40,7 +40,7 @@
 \maketitle
 
 \begin{abstract}
-Nowadays, GPUs are used in all kinds of computing fields to accelerate computer programs. We observed that allocating memory on GPUs is much lower than that of allocating memory on the CPUs. In this study, we focus on decreasing the device memory allocation overhead of GPUs. The overhead becomes significantly larger as the size of the memory segment that is being allocated increases.  In order to achieve the lowest possible overhead during device memory allocations in GPUs, we develop a thread safe memory management library called Memory Allocation Manager (MAM) for CUDA. Our library  completely removes the allocation and the deallocation overheads, and makes the performance of CUDA programs independent from the device memory allocation size.
+Nowadays, GPUs are used in all kinds of computing fields to accelerate computer programs. We observed that allocating memory on GPUs is much slower than that of allocating memory on the CPUs. In this study, we focus on decreasing the device memory allocation overhead of GPUs. The overhead becomes significantly larger as the size of the memory segment that is being allocated increases.  In order to achieve the lowest possible overhead during device memory allocations in GPUs, we develop a thread safe memory management library called Memory Allocation Manager (MAM) for CUDA. Our library  completely removes the allocation and the deallocation overheads, and makes the performance of CUDA programs independent from the device memory allocation size.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -66,7 +66,7 @@ The similar result can be observed from a study of a group from the University o
 \end{figure}
 
 
-We develop a thread safe memory management library, called Memory Allocation Manager (MAM), in order to remove the allocation overhead on GPU memory. Our library provides an abstraction layer between the programmer and the memory management module of CUDA~\cite{cuda} environment. In order to allocate and free memory using MAM, the programmer should call functions defined by MAM API rather than directly calling the regular \code{cudaMalloc()} and \code{cudaFree()} procedures. In this paper, we first introduce the MAM API, then its implementation. Lastly we present its performance and compare it against regular memory routines provided by CUDA. 
+We develop a thread safe memory management library, called Memory Allocation Manager (MAM), in order to remove the allocation overhead on GPU memory. Our library provides an abstraction layer between the programmer and the memory management module of CUDA~\cite{cuda} environment. In order to allocate and free memory using MAM, the programmer should call procedures defined in the MAM API rather than directly calling the regular \code{cudaMalloc()} and \code{cudaFree()} procedures. In this paper, we first introduce the MAM API, then its implementation. Lastly we present its performance and compare it against regular memory routines provided by CUDA. 
 
 
 \section{Application Programming Interface}
@@ -100,7 +100,7 @@ MAM_Destroy();
 \end{lstlisting}
 
 \item {Without specifying the size of the chunk during its creation:}
-In this case, the largest possible size is used. The largest possible size is allocated by performing multiple allocation operations by decreasing the allocation size logarithmically starting from the size of the device memory until one of the allocations succeeds. We 
+In this case, the largest possible size is used. The largest possible size is allocated by performing multiple allocation operations by decreasing the allocation size exponentially starting from the size of the device memory until one of the allocations succeeds. We 
 take this approach because it is not possible to allocate entire device memory. 
 
 \begin{lstlisting}[language=C]
@@ -196,9 +196,10 @@ Next, we will discuss the allocation and deallocation implementations in MAM.
 
 \begin{algorithm}                                                                                                  
 \caption{MAM Allocation Algorithm - $\mathcal{O}(\log n)$}                                                                     
-\label{algorithm}                                                                                      
+\label{algorithm1}                                                                                      
 \begin{algorithmic}[1] 
-\Procedure{FindEmptySegment}{}      
+\Procedure{Allocate}{}      
+\State Find a best-fitting empty segment from the tree-dictionary $\mathcal{O}(\log n)$
 \State Mark the segment as filled $\mathcal{O}(1)$
 \If {The segment perfectly fits $\mathcal{O}(1)$}
 	\State {Remove segment from tree-dictionary $\mathcal{O}(\log n)$}
@@ -219,7 +220,7 @@ When the programmer calls \code{MAM\_CudaMalloc()}, MAM searches the smallest em
 
 
 
-The algorithm of MAM allocation is shown in Algorithm~\ref{algorithm}. 
+The algorithm of MAM allocation is shown in Algorithm~\ref{algorithm1}. 
 %It is the pseudo-code version of the process explained above:
 The complexities of all steps in the algorithm is shown at the end of each step. The overall complexity of this allocation algorithm is $\mathcal{O}(\log n)$, where $n$ is the number of segments existing in the chunk. 
 
@@ -231,7 +232,8 @@ The complexities of all steps in the algorithm is shown at the end of each step.
 
 \subsection{Deallocation}
 When the programmer calls \code{MAM\_CudaFree()}, MAM first marks the segment that is being freed as empty. Then merges the empty segment with previous and next segments if they are also empty. This procedure is illustrated in Figure \ref{fig:dealloc}. % and the algorithm for MAM deallocation is 
-The overall completely of the deallocation algorithm is also $\mathcal{O}(\log n)$, where n is the number of the segments in the chunk. 
+
+The algorithm of MAM deallocation is shown in Algorithm~\ref{algorithm2}. The overall completely of the deallocation algorithm is also $\mathcal{O}(\log n)$, where n is the number of the segments in the chunk. 
 %shown in Algorithm 2. 
 
 
@@ -242,30 +244,30 @@ The overall completely of the deallocation algorithm is also $\mathcal{O}(\log n
   \label{fig:dealloc}
 \end{figure}
 
-%It is the pseudo-code version of the procedure explained above:
 
-%\begin{algorithm}                                                                                                  
-%\caption{MAM Deallocation Algorithm - $\mathcal{O}(\log n)$}                                                                     
-%\label{algorithm2}                                                                                      
-%\begin{algorithmic}[1] 
-%\Procedure{Deallocate}{}      
-%\State Find the segment in the pointer-tree $\mathcal{O}(\log n)$
-%\State Mark the segment as empty $\mathcal{O}(1)$
-%\State Get previous and next segments $\mathcal{O}(\log n)$
-%\If {the previous segment is empty $\mathcal{O}(1)$}
-%	\State {Remove the empty segment from pointer-tree and tree-dictionary $\mathcal{O}(\log n)$}
-%	\State {Destroy the previous segment $\mathcal{O}(1)$}	
-%	\State {Resize previous segment $\mathcal{O}(1)$}
-%	\State {Replace it in tree-dictionary $\mathcal{O}(\log n)$}
-%	\State {Assigned it to the variable stored the destroyed segment $\mathcal{O}(\log n)$}
+
+
+\begin{algorithm}                                                                                                  
+\caption{MAM Deallocation Algorithm - $\mathcal{O}(\log n)$}                                                                     
+\label{algorithm2}                                                                                      
+\begin{algorithmic}[1] 
+\Procedure{Deallocate}{}      
+\State Find the segment in the pointer-tree $\mathcal{O}(\log n)$
+\State Mark the segment as empty $\mathcal{O}(1)$
+\State Get previous and next segments $\mathcal{O}(\log n)$
+\If {the previous segment is empty $\mathcal{O}(1)$}
+	\State {Remove the segment being newly emptied from pointer-tree and tree-dictionary $\mathcal{O}(\log n)$}
+	\State {Destroy the segment being newly emptied $\mathcal{O}(1)$}	
+	\State {Resize previous segment $\mathcal{O}(1)$}
+	\State {Replace it in tree-dictionary $\mathcal{O}(\log n)$}
+	\State {Assign it to the variable stored the destroyed segment $\mathcal{O}(\log n)$}
+\EndIf
+%\If {The next segment is empty $\mathcal{O}(1)$}
+	\State //repeat the similar procedure for next segment. 
 %\EndIf
-%%\If {The next segment is empty $\mathcal{O}(1)$}
-%	\State //repeat the same procedure for next segment. 
-%%\EndIf
-%\EndProcedure
-%\end{algorithmic} 
-%\end{algorithm}
-
+\EndProcedure
+\end{algorithmic} 
+\end{algorithm}
 
 
 
@@ -303,7 +305,7 @@ Figure \ref{fig:cm-mcm} and Figure \ref{fig:cf-mcf} show the performance compari
 \end{figure}
 
 As shown in these figures, while allocation duration of \code{cudaMalloc()} increases swiftly, the duration of \code{MAM\_CudaMalloc()} stays almost constant. MAM completely removes the allocation and deallocation overhead and makes the performance of allocations independent from the allocation size. This result was expected because MAM moves the entire physical memory allocation overhead to the creation of MAM environment from individual allocations.
-Because of the fact that there is no physical memory allocation after the creation of MAM and that the allocation size has no effect on the complexity of MAM.
+There is no physical memory allocation after the creation of MAM and the allocation size has no effect on the complexity of MAM.
 % it is meaningless to measure the performance according to the allocation size. 
 
 The second performance measurement is based on the total number of existing segments during allocation or deallocation. This is meaningful because the size of data structures used in the MAM environment increases with the number of segments. 
