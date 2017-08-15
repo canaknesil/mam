@@ -40,7 +40,7 @@
 \maketitle
 
 \begin{abstract}
-Nowadays, GPUs are used in all kinds of computing fields to accelerate computer programs. We observed that allocating memory on GPUs is much slower than that of allocating memory on the CPUs. In this study, we focus on decreasing the device memory allocation overhead of GPUs. The overhead becomes significantly larger as the size of the memory segment that is being allocated increases.  In order to achieve the lowest possible overhead during device memory allocations in GPUs, we develop a thread safe memory management library called Memory Allocation Manager (MAM) for CUDA. Our library  completely removes the allocation and the deallocation overheads, and makes the performance of CUDA programs independent from the device memory allocation size.
+Nowadays, GPUs are used in all kinds of computing fields to accelerate computer programs. We observed that allocating memory on GPUs is much slower than that of allocating memory on the CPUs. In this study, we focus on decreasing the device memory allocation overhead of GPUs. The overhead becomes significantly larger as the size of the memory segment that is being allocated increases.  In order to achieve the lowest possible overhead during device memory allocations in GPUs, we develop a thread safe memory management library called Memory Allocation Manager (MAM) for CUDA. Our library removes the allocation and the deallocation overheads occurring during the runtime, and makes the performance of CUDA programs independent from the device memory allocation size.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -304,8 +304,7 @@ Figure \ref{fig:cm-mcm} and Figure \ref{fig:cf-mcf} show the performance compari
   \label{fig:cf-mcf}
 \end{figure}
 
-As shown in these figures, while allocation duration of \code{cudaMalloc()} increases swiftly, the duration of \code{MAM\_CudaMalloc()} stays almost constant. MAM completely removes the allocation and deallocation overhead and makes the performance of allocations independent from the allocation size. This result was expected because MAM moves the entire physical memory allocation overhead to the creation of MAM environment from individual allocations.
-There is no physical memory allocation after the creation of MAM and the allocation size has no effect on the complexity of MAM.
+As shown in these figures, while allocation duration of \code{cudaMalloc()} increases swiftly, the duration of \code{MAM\_CudaMalloc()} stays almost constant. MAM removes the allocation and deallocation overhead and makes the performance of allocations independent from the allocation size. This result was expected because MAM moves the entire physical memory allocation overhead to the creation of MAM environment from individual allocations. Even though the initialization of MAM is slow, once it is initialized, there is no significant overhead caused by memory allocations or deallocations. Because, there is no physical memory allocation after the creation of MAM and the allocation size has no effect on the complexity of MAM.
 % it is meaningless to measure the performance according to the allocation size. 
 
 The second performance measurement is based on the total number of existing segments during allocation or deallocation. This is meaningful because the size of data structures used in the MAM environment increases with the number of segments. 
@@ -325,11 +324,11 @@ We should also mention that when the programmer makes a very large number of sma
 
 
 
-\section{Discussion}
+\section{Discussion \& Related Work}
 This study only covers the performance comparison of MAM with CUDA device memory management. However, MAM is completely applicable to any other environment that involves allocation and deallocation of a contiguous space of any kind, such as pinned memory allocation of CUDA~\cite{ICPP-Burak} or host memory allocation. MAM will work exactly the same way with any of these environments since it does not depend on the actual, or physical allocation procedure once it is created.
 
-In the literature, there are a lot of studies~\cite{ICPP-Burak, dCUDA, CuMAS} about GPU memory management, mainly  focusing 
-on reducing data transfer overhead between the host and device memory. A study deals with the effective usage of relatively small GPU memory by using it as a cache for the host memory and transferring data between the two memories during runtime \cite{gpudmm}. A second study that also focuses on small device memory size decreases data transfer overhead between device and host memory by directly connecting  a Solid State Disk (SSD) to a GPU \cite{gpussd}. A group has developed a tool to manage device memory so that multiple applications can use the GPU without any problems \cite{gdm}. Another study integrated GPU as a first-class resource to the operating system \cite{gdev}.
+In the literature, there is a group that also focusses on GPU memory alloation and deallocation overhead \cite{regeff}. They compare current GPU memory allocators and propse a new one that is register efficient. There are a lot of studies~\cite{ICPP-Burak, dCUDA, CuMAS} about GPU memory management, mainly  focusing 
+on reducing data transfer overhead between the host and device memory. A study deals with the effective usage of relatively small GPU memory by using it as a cache for the host memory and transferring data between the two memories during runtime \cite{gpudmm}. A second study that also focuses on small device memory size decreases data transfer overhead between device and host memory by directly connecting  a Solid State Disk (SSD) to a GPU \cite{gpussd}. A group has developed a tool to manage device memory so that multiple applications can use the GPU without any problems \cite{gdm}. Another study integrated GPU as a first-class resource to the operating system \cite{gdev}. 
 
 To our knowledge, there is no study focusing specifically on solving GPU memory allocation overhead. Programmers generally write their own memory manager for their specific application when it is needed. MAM offers a generalized solution, is independent of an applications, and provides efficient data structures to keep the overhead low. 
 % to all kind of allocation overhead problems.
@@ -384,6 +383,9 @@ Mehmet E. Belviranli, Farzad Khorasani, Laxmi N. Bhuyan, and Rajiv Gupta. 2016. 
 T. Gysi, J. Bar and T. Hoefler, 
 dCUDA: Hardware Supported Overlap of Computation and Communication, 
 SC16: International Conference for High Performance Computing, Networking, Storage and Analysis, Salt Lake City, UT, 2016, pp. 609-620.
+
+\bibitem{regeff}
+M. Vinkler and V. Havran, "Register Efficient Dynamic Memory Allocator for GPUs", Computer Graphics Forum, vol. 34, no. 8, pp. 143-154, 2015.
 
 \end{thebibliography}
 
